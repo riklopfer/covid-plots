@@ -1,10 +1,10 @@
 #!/usr/bin/env python3.7
+import argparse
 import sys
 
 import plotly.express as px
-import data
 
-import argparse
+import data
 
 
 def main(argv):

@@ -23,6 +23,7 @@ mkvirtualenv covid-testing -p /usr/bin/python3.7
 pip install -r requirements.txt
 
 ```
+
 # Usage
 
 `plot_test_rate.py` will produce a nice interactive plot of average testing rates over time. The window for the average is provided as a parameter to the script. 
