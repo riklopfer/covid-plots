@@ -7,20 +7,24 @@ import requests
 DATA_DIR = "/tmp/covid-testing"
 
 
-def dl_state_csv_data(state):
+def _dl_csv_data(target):
     """
     https://covidtracking.com/api
     """
-    state = state.lower()
+    target = target.lower()
     # this doesn't have county-level testing data
-    out_dir = os.path.join(DATA_DIR, 'covidtracking', state)
+    out_dir = os.path.join(DATA_DIR, 'covidtracking', target)
     now_hour = datetime.utcnow().strftime('%Y-%m-%d:%H')
     out_path = os.path.join(out_dir, f'{now_hour}.daily.csv')
     # update once per hour?
     if os.path.exists(out_path):
         return out_path
 
-    url = f'https://covidtracking.com/api/v1/states/{state}/daily.csv'
+    if target == 'us':
+        url = f'https://covidtracking.com/api/v1/us/daily.csv'
+    else:
+        url = f'https://covidtracking.com/api/v1/states/{target}/daily.csv'
+
     r = requests.get(url)
     if r.status_code != 200:
         raise ValueError("Received bad status code {}\n{}".
@@ -34,6 +38,64 @@ def dl_state_csv_data(state):
     return out_path
 
 
+VALID_STATES = {
+    'ak',
+    'al',
+    'ar',
+    'as',
+    'az',
+    'ca',
+    'co',
+    'ct',
+    'dc',
+    'de',
+    'fl',
+    'ga',
+    'gu',
+    'hi',
+    'ia',
+    'id',
+    'il',
+    'in',
+    'ks',
+    'ky',
+    'la',
+    'ma',
+    'md',
+    'me',
+    'mi',
+    'mn',
+    'mo',
+    'mp',
+    'ms',
+    'mt',
+    'nc',
+    'nd',
+    'ne',
+    'nh',
+    'nj',
+    'nm',
+    'nv',
+    'ny',
+    'oh',
+    'ok',
+    'or',
+    'pa',
+    'pr',
+    'ri',
+    'sc',
+    'sd',
+    'tn',
+    'tx',
+    'ut',
+    'va',
+    'vi',
+    'vt',
+    'wa',
+    'wi',
+    'wv',
+    'wy',
+}
 ROLLING_WINDOW_TEST_SUFFIX = 'DayRollingTestRate'
 
 
@@ -44,9 +106,11 @@ def _set_test_rates(df, window):
     df[str(window) + ROLLING_WINDOW_TEST_SUFFIX] = test_rates
 
 
-def load_test_df(state, windows):
-    csv_path = dl_state_csv_data(state)
+def _load_data_frame(target, windows):
+    csv_path = _dl_csv_data(target)
     """
+    These are the columns of the data frame...
+
     ['date', 'state', 'positive', 'negative', 'pending',
        'hospitalizedCurrently', 'hospitalizedCumulative', 'inIcuCurrently',
        'inIcuCumulative', 'onVentilatorCurrently', 'onVentilatorCumulative',
@@ -65,4 +129,17 @@ def load_test_df(state, windows):
     # add rolling averages
     for window in windows:
         _set_test_rates(df, window)
+    return df
+
+
+def load_state_test_df(state, windows):
+    if state not in VALID_STATES:
+        raise ValueError("Invalid state abbreviation '{}'".format(state))
+
+    return _load_data_frame(state, windows)
+
+
+def load_usa_test_df(windows):
+    df = _load_data_frame('us', windows)
+    df['state'] = 'USA'
     return df

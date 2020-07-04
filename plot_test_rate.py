@@ -19,14 +19,22 @@ def main(argv):
                         type=int,
                         default=7
                         )
+    parser.add_argument('--include_usa',
+                        help='include data for whole USA',
+                        type=eval,
+                        choices=('True', 'False'),
+                        default=True
+                        )
     args = parser.parse_args(argv[1:])
     state_abbrevs = [_.lower() for _ in args.state]
     window = args.window
+    include_usa = args.include_usa
 
     def load_state_df(abbrev):
-        return data.load_test_df(abbrev, [window])
+        return data.load_state_test_df(abbrev, [window])
 
-    df = None
+    df = None if not include_usa else data.load_usa_test_df([window])
+
     for state in state_abbrevs:
         if df is None:
             df = load_state_df(state)
