@@ -17,10 +17,10 @@ Ubuntu
 sudo apt install virtualenvwrapper python3.7
 
 # make a virtual environment
-mkvirtualenv covid-testing -p python3.7
+mkvirtualenv covid-testing -p /usr/bin/python3.7
 
 # install requirements (in project dir)
-pip instally -R requirements.txt
+pip install -r requirements.txt
 
 ```
 # Usage
