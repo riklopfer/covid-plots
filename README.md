@@ -25,8 +25,10 @@ pip instally -R requirements.txt
 ```
 # Usage
 
+`plot_test_rate.py` will produce a nice interactive plot of average testing rates over time. The window for the average is provided as a parameter to the script. 
+
 ```bash
-./plot_stuff.py PA OH CA CT --window=7
+./plot_test_rate.py PA OH CA CT --window=7
 
 ```
 
