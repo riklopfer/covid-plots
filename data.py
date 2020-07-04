@@ -4,15 +4,6 @@ import os
 import requests
 import pandas as pd
 
-SOURCE_DICT = {
-    '': 'https://covidtracking.com/api/v1/states/pa/current.csv'
-}
-
-"""
-https://covidtracking.com/api/v1/states/pa/current.csv
-
-"""
-
 DATA_DIR = "/tmp/covid-testing"
 
 
@@ -39,13 +30,13 @@ def dl_csv_data(state):
     return out_path
 
 
-def set_test_rates(df, window):
+def _set_test_rates(df, window):
     totals = df[['totalTestResultsIncrease', 'positiveIncrease']].rolling(window).sum()
     test_rates = totals['positiveIncrease'] / totals['totalTestResultsIncrease']
     df[f'{window}DayRollingTestRate'] = test_rates
 
 
-def load_test_df(state):
+def load_test_df(state, windows):
     csv_path = dl_csv_data(state)
     """
     ['date', 'state', 'positive', 'negative', 'pending',
@@ -60,18 +51,10 @@ def load_test_df(state):
        'negativeRegularScore', 'negativeScore', 'positiveScore', 'score',
        'grade']
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, parse_dates=['date'])
     # oldest to newest
     df = df.reindex(index=df.index[::-1])
-    # index by date.
-    df.set_index('date', inplace=True)
     # add rolling averages
-    for window in (3, 7, 14):
-        set_test_rates(df, window)
+    for window in windows:
+        _set_test_rates(df, window)
     return df
-
-
-if __name__ == '__main__':
-    df = load_test_df('pa')
-    stuff = df[['totalTestResultsIncrease', 'positiveIncrease', '2DayRollingTestRate', '7DayRollingTestRate']]
-    pass
