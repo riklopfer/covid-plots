@@ -35,3 +35,6 @@ pip install -r requirements.txt
 
 ![Screenshot](assets/screen-1.png)
 
+ # Dev Notes
+ 
+ PyCharm was used for development. You should be able to open just open the project folder once you have the interpreter configured (i.e. `covid-testing` virtual env)
