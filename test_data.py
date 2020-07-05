@@ -1,5 +1,7 @@
 import unittest
 
+import pandas as pd
+
 import data
 
 
@@ -37,6 +39,18 @@ class AverageTestRateTest(unittest.TestCase):
     def test_usa_data(self):
         df = data.load_usa_test_df((7,))
         self.assertFalse(df.empty)
+
+    def test_start_date(self):
+        start = pd.to_datetime('2020-05-01')
+        df = data.load_state_test_df('pa', windows=(), start_date=start)
+        self.assertFalse(df.empty)
+        self.assertTrue((df.date >= start).all())
+
+    def test_end_date(self):
+        end = pd.to_datetime('2020-07-01')
+        df = data.load_state_test_df('pa', windows=(), start_date=start)
+        self.assertFalse(df.empty)
+        self.assertTrue((df.date <= end).all())
 
 
 if __name__ == '__main__':

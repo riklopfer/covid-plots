@@ -2,6 +2,7 @@
 import argparse
 import sys
 
+import pandas as pd
 import plotly.express as px
 
 import data
@@ -13,6 +14,16 @@ def main(argv):
                         help='State abbreviation',
                         type=str,
                         nargs='+'
+                        )
+    parser.add_argument('--start',
+                        help='start date',
+                        type=pd.to_datetime,
+                        default=None
+                        )
+    parser.add_argument('--end',
+                        help='end date',
+                        type=pd.to_datetime,
+                        default=None
                         )
     parser.add_argument('--window',
                         help='size of the moving window',
@@ -29,11 +40,18 @@ def main(argv):
     state_abbrevs = [_.lower() for _ in args.state]
     window = args.window
     include_usa = args.include_usa
+    start_date = args.start
+    end_date = args.end
 
     def load_state_df(abbrev):
-        return data.load_state_test_df(abbrev, [window])
+        return data.load_state_test_df(abbrev, [window],
+                                       start_date=start_date, end_date=end_date)
 
-    df = None if not include_usa else data.load_usa_test_df([window])
+    if include_usa:
+        df = data.load_usa_test_df([window],
+                                   start_date=start_date, end_date=end_date)
+    else:
+        df = None
 
     for state in state_abbrevs:
         if df is None:
