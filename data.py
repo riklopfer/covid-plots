@@ -106,7 +106,7 @@ def _set_test_rates(df, window):
     df[str(window) + ROLLING_WINDOW_TEST_SUFFIX] = test_rates
 
 
-def _load_data_frame(target, windows):
+def _load_data_frame(target, windows, start_date, end_date):
     csv_path = _dl_csv_data(target)
     """
     These are the columns of the data frame...
@@ -129,17 +129,25 @@ def _load_data_frame(target, windows):
     # add rolling averages
     for window in windows:
         _set_test_rates(df, window)
+
+    # filter start
+    if start_date is not None:
+        df = df[df.date >= start_date]
+    # filter end
+    if end_date is not None:
+        df = df[df.date <= end_date]
+
     return df
 
 
-def load_state_test_df(state, windows):
+def load_state_test_df(state, windows=(), start_date=None, end_date=None):
     if state not in VALID_STATES:
         raise ValueError("Invalid state abbreviation '{}'".format(state))
 
-    return _load_data_frame(state, windows)
+    return _load_data_frame(state, windows, start_date, end_date)
 
 
-def load_usa_test_df(windows):
-    df = _load_data_frame('us', windows)
+def load_usa_test_df(windows=(), start_date=None, end_date=None):
+    df = _load_data_frame('us', windows, start_date, end_date)
     df['state'] = 'USA'
     return df
