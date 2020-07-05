@@ -36,6 +36,8 @@ class DataSource(object):
         return logging.getLogger(self.__class__.__name__)
 
     def dl_csv_data(self, target: str) -> str:
+        # TODO refactor these implementations... i see some common code there.
+        #  Also need to clean up after yourself.
         raise NotImplementedError("Check subclasses")
 
     def _maybe_add_test_rates(self, df, window):
@@ -132,6 +134,41 @@ class CovidTracking(DataSource):
             url = f'https://covidtracking.com/api/v1/us/daily.csv'
         else:
             url = f'https://covidtracking.com/api/v1/states/{target}/daily.csv'
+
+        r = requests.get(url)
+        if r.status_code != 200:
+            raise ValueError("Received bad status code {}\n{}".
+                             format(r.status_code, r.text))
+        assert r.status_code == 200
+
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        with open(out_path, 'w') as ofp:
+            ofp.write(r.text)
+        return out_path
+
+
+class NyTimes(DataSource):
+    def __init__(self):
+        column_map = {
+            'date': 'date',
+            'state': 'state',
+            'county': 'county',
+            'cases': 'positiveTestResultsIncrease'
+        }
+        csv_date_column = 'date'
+        super(NyTimes, self).__init__(column_map, csv_date_column)
+
+    def dl_csv_data(self, target: str) -> str:
+        # this doesn't have county-level testing data
+        out_dir = os.path.join(DATA_DIR, 'nytimes')
+        now_hour = datetime.utcnow().strftime('%Y-%m-%d:%H')
+        out_path = os.path.join(out_dir, f'{now_hour}.daily.csv')
+        # update once per hour?
+        if os.path.exists(out_path):
+            return out_path
+
+        url = "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
 
         r = requests.get(url)
         if r.status_code != 200:
