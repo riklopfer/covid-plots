@@ -78,14 +78,14 @@ class DataSource(object):
 
         return df
 
-    def load_state_test_df(self, state, window, start_date=None,
-                           end_date=None):
+    def load_state_df(self, state, window, start_date=None,
+                      end_date=None):
         if state not in VALID_STATES:
             raise ValueError("Invalid state abbreviation '{}'".format(state))
 
         return self._load_data_frame(state, window, start_date, end_date)
 
-    def load_usa_test_df(self, window, start_date=None, end_date=None):
+    def load_usa_df(self, window, start_date=None, end_date=None):
         df = self._load_data_frame('us', window, start_date, end_date)
         df['state'] = 'USA'
         return df

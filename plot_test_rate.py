@@ -46,14 +46,14 @@ def main(argv):
     data_provider = data.CovidTracking()
 
     def load_state_df(abbrev):
-        return data_provider.load_state_test_df(abbrev, window,
-                                                start_date=start_date,
-                                                end_date=end_date)
+        return data_provider.load_state_df(abbrev, window,
+                                           start_date=start_date,
+                                           end_date=end_date)
 
     if include_usa:
-        df = data_provider.load_usa_test_df(window,
-                                            start_date=start_date,
-                                            end_date=end_date)
+        df = data_provider.load_usa_df(window,
+                                       start_date=start_date,
+                                       end_date=end_date)
     else:
         df = None
 
