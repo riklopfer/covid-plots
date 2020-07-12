@@ -124,7 +124,6 @@ class CovidTracking(DataSource):
         if r.status_code != 200:
             raise ValueError("Received bad status code {}\n{}".
                              format(r.status_code, r.text))
-        assert r.status_code == 200
 
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -175,7 +174,6 @@ class NyTimes(DataSource):
         if r.status_code != 200:
             raise ValueError("Received bad status code {}\n{}".
                              format(r.status_code, r.text))
-        assert r.status_code == 200
 
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -185,4 +183,5 @@ class NyTimes(DataSource):
 
     def add_agg_columns(self, df, window):
         grouped = df.groupby('date')
-        grouped.sum['count']
+        # grouped.sum['count']
+        pass
