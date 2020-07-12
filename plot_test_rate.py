@@ -37,7 +37,7 @@ def main(argv):
                         default=True
                         )
     args = parser.parse_args(argv[1:])
-    state_abbrevs = [_.lower() for _ in args.state]
+    states = args.state
     window = args.window
     include_usa = args.include_usa
     start_date = args.start
@@ -56,7 +56,7 @@ def main(argv):
     else:
         df = None
 
-    for state in state_abbrevs:
+    for state in states:
         if df is None:
             df = load_state_df(state)
         else:
