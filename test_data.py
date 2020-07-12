@@ -87,13 +87,19 @@ class NyTimesDataTest(unittest.TestCase):
 
     def test_usa_data(self):
         national = self.data.get_df()
+        self.assertTrue('state' in national.columns, 'missing state')
         self.assertFalse(national.empty)
 
-        with_average = self.data.with_moving_averages(7)
+        with_average = self.data.get_avg_df(7)
         self.assertFalse(with_average.empty)
+        self.assertTrue('state' in with_average.columns, 'missing state')
 
     def test_pa_data(self):
         pa = self.data.get_state_data('Pennsylvania')
+        pa_data = pa.get_df()
+        self.assertFalse(pa_data.empty)
+
+        pa = self.data.get_state_data('PA')
         pa_data = pa.get_df()
         self.assertFalse(pa_data.empty)
 
@@ -104,7 +110,7 @@ class NyTimesDataTest(unittest.TestCase):
         adf = allegheny.get_df()
         self.assertFalse(adf.empty)
 
-        avg = allegheny.with_moving_averages(7)
+        avg = allegheny.get_avg_df(7)
         self.assertFalse(avg.empty)
 
 
@@ -116,7 +122,7 @@ class CovidTrackingDataTest(unittest.TestCase):
         national = self.data.get_df()
         self.assertFalse(national.empty)
 
-        with_average = self.data.with_moving_averages(7)
+        with_average = self.data.get_avg_df(7)
         self.assertFalse(with_average.empty)
 
     def test_pa_data(self):
@@ -124,7 +130,7 @@ class CovidTrackingDataTest(unittest.TestCase):
         pa_data = pa.get_df()
         self.assertFalse(pa_data.empty)
 
-        avg = pa.with_moving_averages(7)
+        avg = pa.get_avg_df(7)
         self.assertFalse(avg.empty)
 
     def test_allegheny(self):

@@ -2,6 +2,7 @@ import logging
 import os
 from abc import ABC
 from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 import requests
@@ -15,9 +16,46 @@ VALID_STATES = {
     'nv', 'ny', 'oh', 'ok', 'or', 'pa', 'pr', 'ri', 'sc', 'sd', 'tn', 'tx',
     'ut', 'va', 'vi', 'vt', 'wa', 'wi', 'wv', 'wy',
 }
+
+ABV_STATE_MAP = {'AK': 'Alaska', 'AL': 'Alabama', 'AR': 'Arkansas',
+                 'AS': 'American Samoa', 'AZ': 'Arizona', 'CA': 'California',
+                 'CO': 'Colorado', 'CT': 'Connecticut',
+                 'DC': 'District Of Columbia', 'DE': 'Delaware',
+                 'FL': 'Florida', 'GA': 'Georgia', 'GU': 'Guam', 'HI': 'Hawaii',
+                 'IA': 'Iowa', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana',
+                 'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana',
+                 'MA': 'Massachusetts', 'MD': 'Maryland', 'ME': 'Maine',
+                 'MI': 'Michigan', 'MN': 'Minnesota', 'MO': 'Missouri',
+                 'MP': 'Northern Mariana Islands', 'MS': 'Mississippi',
+                 'MT': 'Montana', 'NC': 'North Carolina', 'ND': 'North Dakota',
+                 'NE': 'Nebraska', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+                 'NM': 'New Mexico', 'NV': 'Nevada', 'NY': 'New York',
+                 'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon',
+                 'PA': 'Pennsylvania', 'PR': 'Puerto Rico',
+                 'RI': 'Rhode Island', 'SC': 'South Carolina',
+                 'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas',
+                 'UT': 'Utah', 'VA': 'Virginia', 'VI': 'US Virgin Islands',
+                 'VT': 'Vermont', 'WA': 'Washington', 'WI': 'Wisconsin',
+                 'WV': 'West Virginia', 'WY': 'Wyoming'}
+
+STATE_ABV_MAP = {v: k for k, v in ABV_STATE_MAP.items()}
+
 ROLLING_WINDOW_TEST_SUFFIX = 'DayRollingTestRate'
 
 _REQUIRED_COLUMNS = {'date'}
+
+
+def _lookup_name_abbrev(state_str):
+    """Return state (name, abbreviation) tuple. Abbrev is UPPERCASE"""
+    # Look up by abbreviation
+    if state_str.upper() in ABV_STATE_MAP:
+        state_str = state_str.upper()
+        return ABV_STATE_MAP[state_str], state_str
+
+    if state_str in STATE_ABV_MAP:
+        return state_str, STATE_ABV_MAP[state_str]
+
+    raise KeyError("Failed to find state string {}".format(state_str))
 
 
 def _dl_csv(url, data_source, target):
@@ -61,27 +99,45 @@ class DataUnavailableException(Exception):
         super(DataUnavailableException, self).__init__(*args)
 
 
+POSITIVE_CASE_COL = 'cases'
+TEST_TOTAL_COL = 'tests'
+DEATHS_COL = 'deaths'
+
+_NON_NUMERIC_COLUMNS = {
+    'state', 'county'
+}
+
+
+def date_filter(df: pd.DataFrame,
+                start_date: Optional[pd.Timestamp] = None,
+                end_date: Optional[pd.Timestamp] = None):
+    """Inclusive date filtering"""
+    if start_date:
+        df = df[df.date >= start_date]
+    if end_date:
+        df = df[df.date <= end_date]
+    return df
+
+
 class DailyData(object):
-    POSITIVE_CASE_COL = 'cases'
-    TEST_TOTAL_COL = 'tests'
-    DEATHS_COL = 'deaths'
 
     def get_df(self) -> pd.DataFrame:
-        """Returns a conformant data frame"""
+        """Returns a data frame with state (and county) plus other columns"""
         raise NotImplementedError
 
-    def with_moving_averages(self, window) -> pd.DataFrame:
+    def get_avg_df(self, window) -> pd.DataFrame:
         df = self.get_df()
 
         # First find rolling means
-        roller = df.rolling(window)
+        numeric = df.drop(_NON_NUMERIC_COLUMNS, axis=1, errors='ignore')
+        roller = numeric.rolling(window)
         means = roller.mean()
         df = df.join(means, rsuffix='_{}day-avg'.format(window))
 
-        if DailyData.TEST_TOTAL_COL in df.columns:
+        if TEST_TOTAL_COL in df.columns:
             totals = roller.sum()
-            test_rates = (totals[DailyData.POSITIVE_CASE_COL] /
-                          totals[DailyData.TEST_TOTAL_COL])
+            test_rates = (totals[POSITIVE_CASE_COL] /
+                          totals[TEST_TOTAL_COL])
             df['test-rate_{}day-avg'.format(window)] = test_rates
 
         return df
@@ -113,7 +169,8 @@ class StateData(_StateData):
 
     def __init__(self, df: pd.DataFrame,
                  is_aggregate: bool):
-        # assert len(df['state'].unique()) == 1
+        # 'state' should always be present
+        assert len(df['state'].unique()) == 1
         self.df = df
         self.is_aggregate = is_aggregate
 
@@ -152,15 +209,18 @@ class NyTimesData(_NationalData):
         self.df.sort_values('date', inplace=True)
 
     def get_state_data(self, state_str) -> StateData:
-        state_df = self.df[self.df.state == state_str]
+        name, state = _lookup_name_abbrev(state_str)
+        state_df = self.df[self.df.state == name]
         if state_df.empty:
             raise ValueError("Invalid state {} choose from {}".
-                             format(state_str,
+                             format(name,
                                     self.df.state.unique()))
         return StateData(state_df, True)
 
     def get_df(self) -> pd.DataFrame:
-        return convert_to_deltas(self.df)
+        df = convert_to_deltas(self.df)
+        df['state'] = 'USA'
+        return df
 
 
 class CovidTrackingData(_NationalData):
@@ -209,11 +269,15 @@ class CovidTrackingData(_NationalData):
         return df
 
     def get_state_data(self, state_str) -> StateData:
-        df = self._load_df(state_str)
+        name, state = _lookup_name_abbrev(state_str)
+        df = self._load_df(state.lower())
+        df['state'] = name
         return StateData(df, False)
 
     def get_df(self) -> pd.DataFrame:
-        return self._load_df('usa')
+        df = self._load_df('usa')
+        df['state'] = 'USA'
+        return df
 
 
 class DataSource(object):

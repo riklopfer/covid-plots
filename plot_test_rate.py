@@ -43,17 +43,16 @@ def main(argv):
     start_date = args.start
     end_date = args.end
 
-    data_provider = data.CovidTracking()
+    national = data.CovidTrackingData()
 
     def load_state_df(abbrev):
-        return data_provider.load_state_df(abbrev, window,
-                                           start_date=start_date,
-                                           end_date=end_date)
+        state_df = national.get_state_data(abbrev).get_avg_df(window)
+        state_df = data.date_filter(state_df, start_date, end_date)
+        return state_df
 
     if include_usa:
-        df = data_provider.load_usa_df(window,
-                                       start_date=start_date,
-                                       end_date=end_date)
+        df = national.get_avg_df(window)
+        df = data.date_filter(df, start_date, end_date)
     else:
         df = None
 
@@ -63,7 +62,9 @@ def main(argv):
         else:
             df = df.append(load_state_df(state))
 
-    fig = px.line(df, x="date", y=f"{window}DayRollingTestRate", color='state')
+    fig = px.line(df, x="date",
+                  y='test-rate_{}day-avg'.format(window),
+                  color='state')
     fig.show()
 
 
