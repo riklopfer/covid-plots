@@ -56,6 +56,11 @@ def convert_to_deltas(df):
     return delta
 
 
+class DataUnavailableException(Exception):
+    def __init__(self, *args):
+        super(DataUnavailableException, self).__init__(*args)
+
+
 class DailyData(object):
     POSITIVE_CASE_COL = 'cases'
     TEST_TOTAL_COL = 'tests'
@@ -75,9 +80,9 @@ class DailyData(object):
 
         if DailyData.TEST_TOTAL_COL in df.columns:
             totals = roller.sum()
-            test_rates = (totals['cases'] /
-                          totals['tests'])
-            df[str(window) + ROLLING_WINDOW_TEST_SUFFIX] = test_rates
+            test_rates = (totals[DailyData.POSITIVE_CASE_COL] /
+                          totals[DailyData.TEST_TOTAL_COL])
+            df['test-rate_{}day-avg'.format(window)] = test_rates
 
         return df
 
@@ -104,16 +109,24 @@ class AggCountyData(DailyData):
         return deltas
 
 
-class AggStateData(_StateData):
+class StateData(_StateData):
 
-    def __init__(self, df: pd.DataFrame):
-        assert len(df['state'].unique()) == 1
+    def __init__(self, df: pd.DataFrame,
+                 is_aggregate: bool):
+        # assert len(df['state'].unique()) == 1
         self.df = df
+        self.is_aggregate = is_aggregate
 
     def get_df(self) -> pd.DataFrame:
-        return convert_to_deltas(self.df)
+        if self.is_aggregate:
+            return convert_to_deltas(self.df)
+        else:
+            return self.df
 
     def get_county_data(self, county_str) -> DailyData:
+        if 'county' not in self.df.columns:
+            raise DataUnavailableException("County data not available.")
+
         county_df = self.df[self.df.county == county_str]
         if county_df.empty:
             raise ValueError("Invalid state {} choose from {}".
@@ -138,15 +151,69 @@ class NyTimesData(_NationalData):
         # No mapping required
         self.df.sort_values('date', inplace=True)
 
-    def get_state_data(self, state_str) -> _StateData:
+    def get_state_data(self, state_str) -> StateData:
         state_df = self.df[self.df.state == state_str]
         if state_df.empty:
-            raise ValueError("Invalid state {} choose from {}".format(state_str,
-                                                                      self.df.state.unique()))
-        return AggStateData(state_df)
+            raise ValueError("Invalid state {} choose from {}".
+                             format(state_str,
+                                    self.df.state.unique()))
+        return StateData(state_df, True)
 
     def get_df(self) -> pd.DataFrame:
         return convert_to_deltas(self.df)
+
+
+class CovidTrackingData(_NationalData):
+
+    def __init__(self):
+        """
+        https://covidtracking.com/api
+
+        These are the columns of the CSV..
+
+        ['date', 'state', 'positive', 'negative', 'pending',
+           'hospitalizedCurrently', 'hospitalizedCumulative', 'inIcuCurrently',
+           'inIcuCumulative', 'onVentilatorCurrently', 'onVentilatorCumulative',
+           'recovered', 'dataQualityGrade', 'lastUpdateEt', 'dateModified',
+           'checkTimeEt', 'death', 'hospitalized', 'dateChecked',
+           'totalTestsViral', 'positiveTestsViral', 'negativeTestsViral',
+           'positiveCasesViral', 'fips', 'positiveIncrease', 'negativeIncrease',
+           'total', 'totalTestResults', 'totalTestResultsIncrease', 'posNeg',
+           'deathIncrease', 'hospitalizedIncrease', 'hash', 'commercialScore',
+           'negativeRegularScore', 'negativeScore', 'positiveScore', 'score',
+           'grade']
+        """
+        self._column_mapping = {
+            'date': 'date',
+            'positiveIncrease': 'cases',
+            'totalTestResultsIncrease': 'tests',
+            'deathIncrease': 'deaths'
+        }
+
+    def _load_df(self, target):
+        if target == 'usa':
+            url = f'https://covidtracking.com/api/v1/us/daily.csv'
+        else:
+            url = f'https://covidtracking.com/api/v1/states/{target}/daily.csv'
+
+        csv_path = _dl_csv(url, 'covidtracking', target)
+
+        # load data frame
+        df = pd.read_csv(csv_path, parse_dates=['date'],
+                         usecols=self._column_mapping.keys())
+
+        # map columns
+        df.rename(columns=self._column_mapping, inplace=True)
+        df.sort_values('date', inplace=True)
+
+        return df
+
+    def get_state_data(self, state_str) -> StateData:
+        df = self._load_df(state_str)
+        return StateData(df, False)
+
+    def get_df(self) -> pd.DataFrame:
+        return self._load_df('usa')
 
 
 class DataSource(object):

@@ -108,5 +108,31 @@ class NyTimesDataTest(unittest.TestCase):
         self.assertFalse(avg.empty)
 
 
+class CovidTrackingDataTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.data = data.CovidTrackingData()
+
+    def test_usa_data(self):
+        national = self.data.get_df()
+        self.assertFalse(national.empty)
+
+        with_average = self.data.with_moving_averages(7)
+        self.assertFalse(with_average.empty)
+
+    def test_pa_data(self):
+        pa = self.data.get_state_data('PA')
+        pa_data = pa.get_df()
+        self.assertFalse(pa_data.empty)
+
+        avg = pa.with_moving_averages(7)
+        self.assertFalse(avg.empty)
+
+    def test_allegheny(self):
+        with self.assertRaises(data.DataUnavailableException):
+            allegheny = (self.data
+                         .get_state_data('PA')
+                         .get_county_data('Allegheny'))
+
+
 if __name__ == '__main__':
     unittest.main()
