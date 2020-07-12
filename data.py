@@ -40,21 +40,8 @@ class DataSource(object):
         #  Also need to clean up after yourself.
         raise NotImplementedError("Check subclasses")
 
-    def _maybe_add_test_rates(self, df, window):
-        required_columns = {'totalTestResultsIncrease',
-                            'positiveTestResultsIncrease'}
-        missing_columns = required_columns - set(df.columns)
-        if missing_columns:
-            self.logger.debug("Missing some columns there bud... {}".
-                              format(missing_columns))
-            return
-
-        test_data = df[
-            ['totalTestResultsIncrease', 'positiveTestResultsIncrease']]
-        totals = test_data.rolling(window).sum()
-        test_rates = (totals['positiveTestResultsIncrease'] /
-                      totals['totalTestResultsIncrease'])
-        df[str(window) + ROLLING_WINDOW_TEST_SUFFIX] = test_rates
+    def add_agg_columns(self, df, window):
+        pass
 
     def _load_data_frame(self, target, window, start_date, end_date):
         csv_path = self.dl_csv_data(target)
@@ -66,10 +53,8 @@ class DataSource(object):
         # df = df.reindex(index=df.index[::-1])
         df.sort_values('date', inplace=True)
         #
-        # Add rolling averages
-
-        # Test Rates
-        self._maybe_add_test_rates(df, window)
+        # Add aggregate columns of interest
+        self.add_agg_columns(df, window)
 
         # filter start
         if start_date is not None:
@@ -147,6 +132,22 @@ class CovidTracking(DataSource):
             ofp.write(r.text)
         return out_path
 
+    def add_agg_columns(self, df, window):
+        required_columns = {'totalTestResultsIncrease',
+                            'positiveTestResultsIncrease'}
+        missing_columns = required_columns - set(df.columns)
+        if missing_columns:
+            self.logger.debug("Missing some columns there bud... {}".
+                              format(missing_columns))
+            return
+
+        test_data = df[
+            ['totalTestResultsIncrease', 'positiveTestResultsIncrease']]
+        totals = test_data.rolling(window).sum()
+        test_rates = (totals['positiveTestResultsIncrease'] /
+                      totals['totalTestResultsIncrease'])
+        df[str(window) + ROLLING_WINDOW_TEST_SUFFIX] = test_rates
+
 
 class NyTimes(DataSource):
     def __init__(self):
@@ -154,7 +155,7 @@ class NyTimes(DataSource):
             'date': 'date',
             'state': 'state',
             'county': 'county',
-            'cases': 'positiveTestResultsIncrease'
+            'cases': 'positiveTestResultsCumulative'
         }
         csv_date_column = 'date'
         super(NyTimes, self).__init__(column_map, csv_date_column)
@@ -181,3 +182,7 @@ class NyTimes(DataSource):
         with open(out_path, 'w') as ofp:
             ofp.write(r.text)
         return out_path
+
+    def add_agg_columns(self, df, window):
+        grouped = df.groupby('date')
+        grouped.sum['count']

@@ -56,7 +56,7 @@ class CovidTrackingTest(unittest.TestCase):
 class NyTimesTest(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.data_provider = data.CovidTracking()
+        self.data_provider = data.NyTimes()
 
     # def test_zero_window(self):
     #     df = self.data_provider.load_state_df('pa', window=0)
