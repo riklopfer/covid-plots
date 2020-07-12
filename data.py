@@ -1,5 +1,6 @@
 import logging
 import os
+from abc import ABC
 from datetime import datetime
 
 import pandas as pd
@@ -17,6 +18,135 @@ VALID_STATES = {
 ROLLING_WINDOW_TEST_SUFFIX = 'DayRollingTestRate'
 
 _REQUIRED_COLUMNS = {'date'}
+
+
+def _dl_csv(url, data_source, target):
+    target = target.lower()
+    # this doesn't have county-level testing data
+    out_dir = os.path.join(DATA_DIR, data_source, target)
+    now_hour = datetime.utcnow().strftime('%Y-%m-%d:%H')
+    out_path = os.path.join(out_dir, f'{now_hour}.daily.csv')
+    # update once per hour?
+    if os.path.exists(out_path):
+        return out_path
+
+    r = requests.get(url)
+    if r.status_code != 200:
+        raise ValueError("Received bad status code {}\n{}".
+                         format(r.status_code, r.text))
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    with open(out_path, 'w') as ofp:
+        ofp.write(r.text)
+    return out_path
+
+
+def convert_to_deltas(df):
+    cumulative = df.groupby('date').sum()
+    # insert one at the top with zeros
+    before_time = pd.DataFrame(
+        data={
+            'date': [pd.Timestamp(0, unit='s')],
+            'cases': [0],
+            'deaths': [0]
+        },
+    ).set_index('date')
+    delta = before_time.append(cumulative).diff().dropna()
+    return delta
+
+
+class DailyData(object):
+    POSITIVE_CASE_COL = 'cases'
+    TEST_TOTAL_COL = 'tests'
+    DEATHS_COL = 'deaths'
+
+    def get_df(self) -> pd.DataFrame:
+        """Returns a conformant data frame"""
+        raise NotImplementedError
+
+    def with_moving_averages(self, window) -> pd.DataFrame:
+        df = self.get_df()
+
+        # First find rolling means
+        roller = df.rolling(window)
+        means = roller.mean()
+        df = df.join(means, rsuffix='_{}day-avg'.format(window))
+
+        if DailyData.TEST_TOTAL_COL in df.columns:
+            totals = roller.sum()
+            test_rates = (totals['cases'] /
+                          totals['tests'])
+            df[str(window) + ROLLING_WINDOW_TEST_SUFFIX] = test_rates
+
+        return df
+
+
+class _StateData(DailyData, ABC):
+
+    def get_county_data(self, county_str) -> DailyData:
+        raise NotImplementedError("County data unavailable")
+
+
+class _NationalData(DailyData, ABC):
+
+    def get_state_data(self, state_str) -> _StateData:
+        raise NotImplementedError("State data not available")
+
+
+class AggCountyData(DailyData):
+    def __init__(self, df: pd.DataFrame):
+        assert len(df[['state', 'county']].drop_duplicates()) == 1
+        self.df = df
+
+    def get_df(self) -> pd.DataFrame:
+        deltas = convert_to_deltas(self.df)
+        return deltas
+
+
+class AggStateData(_StateData):
+
+    def __init__(self, df: pd.DataFrame):
+        assert len(df['state'].unique()) == 1
+        self.df = df
+
+    def get_df(self) -> pd.DataFrame:
+        return convert_to_deltas(self.df)
+
+    def get_county_data(self, county_str) -> DailyData:
+        county_df = self.df[self.df.county == county_str]
+        if county_df.empty:
+            raise ValueError("Invalid state {} choose from {}".
+                             format(county_df,
+                                    self.df.county.unique()))
+        return AggCountyData(county_df)
+
+
+class NyTimesData(_NationalData):
+    def __init__(self):
+        # download data and create initial data frame
+        csv_path = _dl_csv(
+            "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv",
+            'nytimes', 'us-counties'
+        )
+        """
+        ['date', 'county', 'state', 'fips', 'cases', 'deaths']
+        """
+        self.df = pd.read_csv(csv_path, parse_dates=['date'],
+                              usecols=['date', 'county', 'state', 'cases',
+                                       'deaths'])
+        # No mapping required
+        self.df.sort_values('date', inplace=True)
+
+    def get_state_data(self, state_str) -> _StateData:
+        state_df = self.df[self.df.state == state_str]
+        if state_df.empty:
+            raise ValueError("Invalid state {} choose from {}".format(state_str,
+                                                                      self.df.state.unique()))
+        return AggStateData(state_df)
+
+    def get_df(self) -> pd.DataFrame:
+        return convert_to_deltas(self.df)
 
 
 class DataSource(object):
