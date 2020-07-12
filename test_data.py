@@ -4,8 +4,9 @@ import pandas as pd
 
 import data
 
+# there are required, but may be null
 _required_columns = {
-    'date', 'state'
+    'nation', 'state', 'county', 'location'
 }
 
 

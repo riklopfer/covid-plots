@@ -95,7 +95,7 @@ TEST_TOTAL_COL = 'tests'
 DEATHS_COL = 'deaths'
 
 _NON_NUMERIC_COLUMNS = {
-    'state', 'county'
+    'nation', 'state', 'county', 'location'
 }
 
 
@@ -146,15 +146,24 @@ class _NationalData(DailyData, ABC):
         raise NotImplementedError("State data not available")
 
 
-class AggCountyData(DailyData):
+def add_location_info(df: pd.DataFrame, nation: str, state: str, county: str):
+    df['nation'] = nation
+    df['state'] = state
+    df['county'] = county
+    location = " ".join([_ for _ in (county, state, nation) if _])
+    df['location'] = location
+
+
+class CountyData(DailyData):
     def __init__(self, df: pd.DataFrame):
         assert len(df[['state', 'county']].drop_duplicates()) == 1
         self.df = df
 
     def get_df(self) -> pd.DataFrame:
         deltas = convert_to_deltas(self.df)
-        deltas['state'] = self.df['state'].iloc[0]
-        deltas['county'] = self.df['county'].iloc[0]
+        add_location_info(deltas, 'USA',
+                          self.df['state'].iloc[0],
+                          self.df['county'].iloc[0])
         return deltas
 
 
@@ -169,11 +178,14 @@ class StateData(_StateData):
 
     def get_df(self) -> pd.DataFrame:
         if self.is_aggregate:
-            deltas = convert_to_deltas(self.df)
-            deltas['state'] = self.df['state'].iloc[0]
-            return deltas
+            df = convert_to_deltas(self.df)
         else:
-            return self.df
+            df = self.df
+
+        add_location_info(df, 'USA',
+                          self.df['state'].iloc[0],
+                          None)
+        return df
 
     def get_county_data(self, county_str) -> DailyData:
         if 'county' not in self.df.columns:
@@ -184,7 +196,7 @@ class StateData(_StateData):
             raise ValueError("Invalid state {} choose from {}".
                              format(county_df,
                                     self.df.county.unique()))
-        return AggCountyData(county_df)
+        return CountyData(county_df)
 
 
 class NyTimesData(_NationalData):
@@ -214,7 +226,8 @@ class NyTimesData(_NationalData):
 
     def get_df(self) -> pd.DataFrame:
         df = convert_to_deltas(self.df)
-        df['state'] = 'USA'
+        add_location_info(df, 'USA',
+                          None, None)
         return df
 
 
@@ -271,5 +284,6 @@ class CovidTrackingData(_NationalData):
 
     def get_df(self) -> pd.DataFrame:
         df = self._load_df('usa')
-        df['state'] = 'USA'
+        add_location_info(df, 'USA',
+                          None, None)
         return df

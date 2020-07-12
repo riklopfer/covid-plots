@@ -64,7 +64,7 @@ def main(argv):
 
     fig = px.line(df, x="date",
                   y='test-rate_{}day-avg'.format(window),
-                  color='state')
+                  color='location')
     fig.show()
 
 

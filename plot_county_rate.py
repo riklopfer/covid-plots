@@ -74,7 +74,7 @@ def main(argv):
     fig = px.line(df,
                   x="date",
                   y='cases_{}day-avg'.format(window),
-                  color='county')
+                  color='location')
     fig.show()
 
 
