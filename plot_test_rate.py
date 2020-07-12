@@ -11,7 +11,7 @@ import data
 def main(argv):
     parser = argparse.ArgumentParser(description=argv[0])
     parser.add_argument('state',
-                        help='State abbreviation',
+                        help='State abbreviation or Full Name',
                         type=str,
                         nargs='+'
                         )
