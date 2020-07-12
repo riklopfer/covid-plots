@@ -4,53 +4,109 @@ import pandas as pd
 
 import data
 
+_required_columns = {
+    'date', 'state'
+}
 
-def get_test_column_names(df):
-    return [_ for _ in df.columns if
-            _.endswith(data.ROLLING_WINDOW_TEST_SUFFIX)]
+
+class GenericTest(unittest.TestCase):
+
+    def assert_has_required_columns(self, df):
+        missing = _required_columns - set(df.columns)
+        self.assertFalse(missing, "Some columns missing {}".format(missing))
+
+    def assert_date_ascending(self, df):
+        date_diff = df.date.diff().iloc[1:]
+        day_diff = date_diff == pd.Timedelta(1, unit='D')
+        # multi day diff
+        # day_diff = date_diff >= pd.Timedelta(1, unit='D')
+        self.assertTrue(day_diff.all())
+
+    def basic_requirements(self, df):
+        self.assertFalse(df.empty, "Data frame is empty")
+        self.assert_has_required_columns(df)
+        self.assert_date_ascending(df)
+
+    def validate_date_filter(self, df, start_date=None, end_date=None):
+        ranged = data.date_filter(df, start_date, end_date)
+        if start_date:
+            self.assertTrue((ranged.date >= start_date).all())
+        if end_date:
+            self.assertTrue((ranged.date <= end_date).all())
 
 
-class AverageTestRateTest(unittest.TestCase):
-
-    def test_no_window(self):
-        df = data.load_state_test_df('pa', windows=())
-        test_window_columns = get_test_column_names(df)
-        self.assertEqual(0, len(test_window_columns))
-
-    def test_one_window(self):
-        df = data.load_state_test_df('pa', windows=(3,))
-        test_window_columns = get_test_column_names(df)
-        self.assertEqual(1, len(test_window_columns))
-        self.assertListEqual(['3' + data.ROLLING_WINDOW_TEST_SUFFIX],
-                             test_window_columns)
-
-    def test_two_windows(self):
-        df = data.load_state_test_df('pa', windows=(3, 7,))
-        test_window_columns = get_test_column_names(df)
-        self.assertEqual(2, len(test_window_columns))
-        self.assertListEqual(['3' + data.ROLLING_WINDOW_TEST_SUFFIX,
-                              '7' + data.ROLLING_WINDOW_TEST_SUFFIX],
-                             test_window_columns)
-
-    def test_bad_abbrev(self):
-        with self.assertRaises(ValueError):
-            data.load_state_test_df('usa', windows=())
+class NyTimesDataTest(GenericTest):
+    def setUp(self) -> None:
+        self.data = data.NyTimesData()
 
     def test_usa_data(self):
-        df = data.load_usa_test_df((7,))
-        self.assertFalse(df.empty)
+        national = self.data.get_df()
+        self.basic_requirements(national)
 
-    def test_start_date(self):
-        start = pd.to_datetime('2020-05-01')
-        df = data.load_state_test_df('pa', windows=(), start_date=start)
-        self.assertFalse(df.empty)
-        self.assertTrue((df.date >= start).all())
+        with_average = self.data.get_avg_df(7)
+        self.basic_requirements(with_average)
 
-    def test_end_date(self):
-        end = pd.to_datetime('2020-07-01')
-        df = data.load_state_test_df('pa', windows=(), start_date=start)
-        self.assertFalse(df.empty)
-        self.assertTrue((df.date <= end).all())
+    def test_pa_data(self):
+        pa = self.data.get_state_data('Pennsylvania')
+        pa_data = pa.get_df()
+        self.basic_requirements(pa_data)
+
+        pa = self.data.get_state_data('PA')
+        pa_data = pa.get_df()
+        self.basic_requirements(pa_data)
+
+    def test_allegheny(self):
+        allegheny = (self.data
+                     .get_state_data('Pennsylvania')
+                     .get_county_data('Allegheny'))
+        adf = allegheny.get_df()
+        self.basic_requirements(adf)
+
+        avg = allegheny.get_avg_df(7)
+        self.basic_requirements(avg)
+
+    def test_date_range(self):
+        ca = (self.data
+              .get_state_data('CA')
+              .get_county_data("Contra Costa"))
+        avg = ca.get_avg_df(7)
+        self.validate_date_filter(avg,
+                                  start_date=pd.to_datetime('03-22-2020'),
+                                  end_date=pd.to_datetime('06-30-2020'))
+
+
+class CovidTrackingDataTest(GenericTest):
+    def setUp(self) -> None:
+        self.data = data.CovidTrackingData()
+
+    def test_usa_data(self):
+        national = self.data.get_df()
+        self.basic_requirements(national)
+
+        with_average = self.data.get_avg_df(7)
+        self.basic_requirements(with_average)
+
+    def test_pa_data(self):
+        pa = self.data.get_state_data('PA')
+        pa_data = pa.get_df()
+        self.basic_requirements(pa_data)
+
+        avg = pa.get_avg_df(7)
+        self.basic_requirements(avg)
+
+    def test_allegheny(self):
+        with self.assertRaises(data.DataUnavailableException):
+            allegheny = (self.data
+                         .get_state_data('PA')
+                         .get_county_data('Allegheny'))
+
+    def test_date_range(self):
+        ca = (self.data
+              .get_state_data('CA'))
+        avg = ca.get_avg_df(7)
+        self.validate_date_filter(avg,
+                                  start_date=pd.to_datetime('03-22-2020'),
+                                  end_date=pd.to_datetime('06-30-2020'))
 
 
 if __name__ == '__main__':
