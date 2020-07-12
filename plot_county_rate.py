@@ -34,36 +34,47 @@ def main(argv):
                         help='include data for whole USA',
                         type=eval,
                         choices=('True', 'False'),
-                        default=True
+                        default=False
+                        )
+    parser.add_argument('--metric',
+                        help='Metric to look at.',
+                        type=str,
+                        nargs='+',
+                        choices=['cases', 'deaths']
                         )
     args = parser.parse_args(argv[1:])
-    state_abbrevs = [_.lower() for _ in args.state]
+    county_states = [_.split(',') for _ in args.county_state]
     window = args.window
     include_usa = args.include_usa
     start_date = args.start
     end_date = args.end
 
-    data_provider = data.CovidTracking()
+    national = data.NyTimesData()
 
-    def load_state_df(abbrev):
-        return data_provider.load_state_df(abbrev, window,
-                                           start_date=start_date,
-                                           end_date=end_date)
+    def load_df(_county, _state):
+        _df = (national.
+               get_state_data(_state).
+               get_county_data(_county).
+               get_avg_df(window))
+        _df = data.date_filter(_df, start_date, end_date)
+        return _df
 
     if include_usa:
-        df = data_provider.load_usa_df(window,
-                                       start_date=start_date,
-                                       end_date=end_date)
+        df = national.get_avg_df(window)
+        df = data.date_filter(df, start_date, end_date)
     else:
         df = None
 
-    for state in state_abbrevs:
+    for county, state in county_states:
         if df is None:
-            df = load_state_df(state)
+            df = load_df(county, state)
         else:
-            df = df.append(load_state_df(state))
+            df = df.append(load_df(county, state))
 
-    fig = px.line(df, x="date", y=f"{window}DayRollingTestRate", color='state')
+    fig = px.line(df,
+                  x="date",
+                  y='cases_{}day-avg'.format(window),
+                  color='county')
     fig.show()
 
 

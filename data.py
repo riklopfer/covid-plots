@@ -83,15 +83,18 @@ def _dl_csv(url, data_source, target):
 def convert_to_deltas(df):
     cumulative = df.groupby('date').sum()
     # insert one at the top with zeros
+    # this is an awful lot of screwing around to assure that the
+    # delta @t0 is correct
     before_time = pd.DataFrame(
         data={
-            'date': [pd.Timestamp(0, unit='s')],
+            # 'date': [df['date'].iloc[0]],
             'cases': [0],
             'deaths': [0]
         },
-    ).set_index('date')
-    delta = before_time.append(cumulative).diff().dropna()
-    return delta
+    )
+    extended = before_time.append(cumulative)
+    deltas = extended.diff().dropna().reset_index(drop=False).rename(columns={'index': 'date'})
+    return deltas
 
 
 class DataUnavailableException(Exception):
@@ -162,6 +165,8 @@ class AggCountyData(DailyData):
 
     def get_df(self) -> pd.DataFrame:
         deltas = convert_to_deltas(self.df)
+        deltas['state'] = self.df['state'].iloc[0]
+        deltas['county'] = self.df['county'].iloc[0]
         return deltas
 
 
@@ -176,7 +181,9 @@ class StateData(_StateData):
 
     def get_df(self) -> pd.DataFrame:
         if self.is_aggregate:
-            return convert_to_deltas(self.df)
+            deltas = convert_to_deltas(self.df)
+            deltas['state'] = self.df['state'].iloc[0]
+            return deltas
         else:
             return self.df
 
