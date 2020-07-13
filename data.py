@@ -45,6 +45,66 @@ def _lookup_name_abbrev(state_str):
     raise KeyError("Failed to find state string {}".format(state_str))
 
 
+class Location(object):
+    def __init__(self, nation, state, county):
+        self.nation = nation
+        self.county = county
+        self.state = state
+
+    def get_df(self, window, source=None, start_date=None, end_date=None):
+        if source == 'nytimes':
+            source = NyTimesData()
+        elif source == 'tracking':
+            source = CovidTrackingData()
+        elif source is None:
+            if self.county:
+                source = NyTimesData()
+            else:
+                source = CovidTrackingData()
+        else:
+            raise ValueError("Unknown source '{}'".format(source))
+
+        if self.state:
+            source = source.get_state_data(self.state)
+
+        if self.county:
+            source = source.get_county_data(self.county)
+
+        df = source.get_avg_df(window)
+        return date_filter(df, start_date, end_date)
+
+
+def parse_location(location_string: str) -> Location:
+    data = [_.strip() for _ in location_string.split(",")]
+    # only have USA data
+    nation, state, county = "USA", None, None
+
+    unparsed = []
+    for dat in data:
+        if dat == 'USA':
+            continue
+        elif dat in ABV_STATE_MAP:
+            state = dat
+        elif dat in STATE_ABV_MAP:
+            state = dat
+        else:
+            unparsed.append(dat)
+
+    # we should only have one un-parsed param
+    if len(unparsed) > 1:
+        raise ValueError("Could not parse '{}' un-parsed datum {}"
+                         .format(location_string, unparsed))
+
+    if unparsed:
+        county = unparsed[0]
+
+    return Location(nation, state, county)
+
+
+#
+#
+#
+
 def _dl_csv(url, data_source, target):
     target = target.lower()
     # this doesn't have county-level testing data
@@ -144,6 +204,9 @@ class _NationalData(DailyData, ABC):
 
     def get_state_data(self, state_str) -> _StateData:
         raise NotImplementedError("State data not available")
+
+    def build_df(self, loc: Location) -> pd.DataFrame:
+        raise NotImplementedError
 
 
 def add_location_info(df: pd.DataFrame, nation: str, state: str, county: str):
@@ -289,57 +352,85 @@ class CovidTrackingData(_NationalData):
         return df
 
 
-class Location(object):
-    def __init__(self, nation, state, county):
-        self.nation = nation
-        self.county = county
-        self.state = state
+class PopulationData(object):
+    def build_df(self, loc: Location) -> pd.DataFrame:
+        raise NotImplementedError
 
-    def get_df(self, window, source=None, start_date=None, end_date=None):
-        if source == 'nytimes':
-            source = NyTimesData()
-        elif source == 'tracking':
-            source = CovidTrackingData()
-        elif source is None:
-            if self.county:
-                source = NyTimesData()
-            else:
-                source = CovidTrackingData()
-        else:
-            raise ValueError("Unknown source '{}'".format(source))
-
-        if self.state:
-            source = source.get_state_data(self.state)
-
-        if self.county:
-            source = source.get_county_data(self.county)
-
-        df = source.get_avg_df(window)
-        return date_filter(df, start_date, end_date)
+    def get_population(self, loc: Location) -> int:
+        raise NotImplementedError
 
 
-def parse_location(location_string: str) -> Location:
-    data = [_.strip() for _ in location_string.split(",")]
-    # only have USA data
-    nation, state, county = "USA", None, None
+CENSUS_DIR = "/tmp/us-census"
 
-    unparsed = []
-    for dat in data:
-        if dat == 'USA':
-            continue
-        elif dat in ABV_STATE_MAP:
-            state = dat
-        elif dat in STATE_ABV_MAP:
-            state = dat
-        else:
-            unparsed.append(dat)
 
-    # we should only have one un-parsed param
-    if len(unparsed) > 1:
-        raise ValueError("Could not parse '{}' un-parsed datum {}"
-                         .format(location_string, unparsed))
+def _dl_census_csv():
+    csv_file = os.path.join(CENSUS_DIR, 'co-est2019-alldata.csv')
+    if os.path.exists(csv_file):
+        return csv_file
 
-    if unparsed:
-        county = unparsed[0]
+    url = 'https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/totals/co-est2019-alldata.csv'
+    resp = requests.get(url)
+    if resp.status_code != 200:
+        raise ValueError("Bad error code\n{}", resp)
 
-    return Location(nation, state, county)
+    if not os.path.exists(CENSUS_DIR):
+        os.makedirs(CENSUS_DIR)
+
+    with open(csv_file, 'w') as ofp:
+        ofp.write(resp.text)
+
+    return csv_file
+
+
+def _fix_county_name(name: str):
+    return (name
+            .replace(" County", "")
+            .replace(" Borough", "")
+            .replace(" Parish", "")
+            )
+
+
+def _load_census_df():
+    csv_path = _dl_census_csv()
+    fields = ['SUMLEV', 'STNAME', 'CTYNAME', 'POPESTIMATE2019']
+    df = pd.read_csv(csv_path, usecols=fields)
+    # map columns
+    col_map = {
+        "SUMLEV": 'sumlev',
+        "STNAME": 'state',
+        "CTYNAME": 'county',
+        'POPESTIMATE2019': 'population'
+    }
+    df.rename(columns=col_map, inplace=True)
+    # strip " County" Borough, Census Area, Parish
+    df['county'] = df['county'].apply(_fix_county_name)
+    # keep only county level
+    county = df[df['sumlev'] == 50]
+
+    return county[['state', 'county', 'population']]
+
+
+class CensusData(PopulationData):
+    def __init__(self):
+        self.df = _load_census_df()
+
+    def build_df(self, loc: Location) -> pd.DataFrame:
+        if loc.nation != 'USA':
+            raise ValueError("Unknown nation: {}".format(loc.nation))
+
+        df = self.df
+        if loc.state:
+            name, abbrev = _lookup_name_abbrev(loc.state)
+            df = df[df.state == name]
+            assert not df.empty, "WTF state is '{}'".format(name)
+
+        if loc.county:
+            df = df[df.county == loc.county]
+            assert len(df) == 1, \
+                "Expected only one county name per state?\n{}".format(df)
+
+        return df
+
+    def get_population(self, loc: Location) -> int:
+        df = self.build_df(loc)
+        return df['population'].sum()

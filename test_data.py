@@ -110,5 +110,32 @@ class CovidTrackingDataTest(GenericTest):
                                   end_date=pd.to_datetime('06-30-2020'))
 
 
+class TestCensusData(unittest.TestCase):
+
+    def sanity_check(self, df: pd.DataFrame):
+        self.assertFalse(df.empty)
+
+    def test_stuff(self):
+        dat = data.CensusData()
+
+        clark = data.parse_location("Clark,OH")
+        allegheny = data.parse_location("Allegheny,PA")
+        pa = data.parse_location("PA")
+        usa = data.parse_location("USA")
+
+        # self.sanity_check(dat.build_df(clark))
+        self.sanity_check(dat.build_df(allegheny))
+        self.sanity_check(dat.build_df(pa))
+        self.sanity_check(dat.build_df(usa))
+
+        county, state, nation = (
+            dat.get_population(allegheny),
+            dat.get_population(pa),
+            dat.get_population(usa)
+        )
+
+        self.assertTrue(county < state < nation)
+
+
 if __name__ == '__main__':
     unittest.main()
