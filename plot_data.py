@@ -63,9 +63,10 @@ def main(argv):
         else:
             df = df.append(load_df(location))
 
+    plot_value = '{}_{}day-avg'.format(metric, window)
     fig = px.line(df,
                   x="date",
-                  y='{}_{}day-avg'.format(metric, window),
+                  y=plot_value,
                   color='location')
     fig.show()
 
