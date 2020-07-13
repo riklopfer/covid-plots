@@ -51,28 +51,6 @@ class Location(object):
         self.county = county
         self.state = state
 
-    def get_df(self, window, source=None, start_date=None, end_date=None):
-        if source == 'nytimes':
-            source = NyTimesData()
-        elif source == 'tracking':
-            source = CovidTrackingData()
-        elif source is None:
-            if self.county:
-                source = NyTimesData()
-            else:
-                source = CovidTrackingData()
-        else:
-            raise ValueError("Unknown source '{}'".format(source))
-
-        if self.state:
-            source = source.get_state_data(self.state)
-
-        if self.county:
-            source = source.get_county_data(self.county)
-
-        df = source.get_avg_df(window)
-        return date_filter(df, start_date, end_date)
-
 
 def parse_location(location_string: str) -> Location:
     data = [_.strip() for _ in location_string.split(",")]
@@ -205,8 +183,18 @@ class _NationalData(DailyData, ABC):
     def get_state_data(self, state_str) -> _StateData:
         raise NotImplementedError("State data not available")
 
-    def build_df(self, loc: Location) -> pd.DataFrame:
-        raise NotImplementedError
+    def build_df(self, loc: Location, window: int,
+                 start_date=None, end_date=None) -> pd.DataFrame:
+        source = self
+
+        if loc.state:
+            source = source.get_state_data(loc.state)
+
+        if loc.county:
+            source = source.get_county_data(loc.county)
+
+        df = source.get_avg_df(window)
+        return date_filter(df, start_date, end_date)
 
 
 def add_location_info(df: pd.DataFrame, nation: str, state: str, county: str):

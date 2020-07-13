@@ -37,23 +37,23 @@ def main(argv):
                         default='cases'
                         )
     args = parser.parse_args(argv[1:])
-    locations = args.locations
+    locations = [data.parse_location(_) for _ in args.locations]
     window = args.window
     metric = args.metric
     start_date = args.start
     end_date = args.end
 
-    data_source = None
-    if metric == 'test-rate':
-        # we only get test data from here
-        data_source = 'tracking'
+    use_tracking = 'test' in metric
+    use_nytimes = any(loc.county for loc in locations)
 
-    def load_df(location_str):
-        loc = data.parse_location(location_str)
-        assert not data_source or not loc.county, \
-            "We do not have test data for counties :("
-        return loc.get_df(window, source=data_source,
-                          start_date=start_date, end_date=end_date)
+    if use_nytimes and use_tracking:
+        raise ValueError("We do not county level test data!")
+
+    data_source = data.NyTimesData() if use_nytimes else data.CovidTrackingData()
+
+    def load_df(loc):
+        return data_source.build_df(loc, window=window,
+                                    start_date=start_date, end_date=end_date)
 
     df = None
 
