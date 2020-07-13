@@ -395,7 +395,7 @@ def _load_census_df():
     # keep only county level
     county = df[df['sumlev'] == 50]
 
-    return county[['state', 'county', 'population']]
+    return county.drop(columns=['sumlev'])
 
 
 class CensusData(PopulationData):
@@ -415,7 +415,7 @@ class CensusData(PopulationData):
         if loc.county:
             df = df[df.county == loc.county]
             assert len(df) == 1, \
-                "Expected only one county name per state?\n{}".format(df)
+                "Expected only one county name per state?\nGot: {}".format(df)
 
         return df
 
