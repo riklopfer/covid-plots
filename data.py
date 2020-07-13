@@ -287,3 +287,59 @@ class CovidTrackingData(_NationalData):
         add_location_info(df, 'USA',
                           None, None)
         return df
+
+
+class Location(object):
+    def __init__(self, nation, state, county):
+        self.nation = nation
+        self.county = county
+        self.state = state
+
+    def get_df(self, window, source=None, start_date=None, end_date=None):
+        if source == 'nytimes':
+            source = NyTimesData()
+        elif source == 'tracking':
+            source = CovidTrackingData()
+        elif source is None:
+            if self.county:
+                source = NyTimesData()
+            else:
+                source = CovidTrackingData()
+        else:
+            raise ValueError("Unknown source '{}'".format(source))
+
+        if self.state:
+            source = source.get_state_data(self.state)
+
+        if self.county:
+            source = source.get_county_data(self.county)
+
+        df = source.get_avg_df(window)
+        return date_filter(df, start_date, end_date)
+
+
+def parse_location(location_string: str) -> Location:
+    data = [_.strip() for _ in location_string.split(",")]
+    # only have USA data
+    nation, state, county = "USA", None, None
+
+    unparsed = []
+    for dat in data:
+        if dat == 'USA':
+            continue
+        elif dat in ABV_STATE_MAP:
+            state = dat
+        elif dat in STATE_ABV_MAP:
+            state = dat
+        else:
+            unparsed.append(dat)
+
+    # we should only have one un-parsed param
+    if len(unparsed) > 1:
+        raise ValueError("Could not parse '{}' un-parsed datum {}"
+                         .format(location_string, unparsed))
+
+    if unparsed:
+        county = unparsed[0]
+
+    return Location(nation, state, county)
