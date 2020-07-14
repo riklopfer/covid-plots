@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.7
 import argparse
+import collections
 import sys
 
 import pandas as pd
@@ -74,10 +75,22 @@ def main(argv):
             df = df.append(load_df(location))
 
     plot_value = '{}_{}day-avg'.format(metric, window)
+    hover_set = set(df.columns) - data.NON_NUMERIC_COLUMNS - {plot_value}
+
+    hover_data = collections.OrderedDict()
+    for name in sorted(hover_set):
+        if name in {'cases', 'deaths'}:
+            hover_data[name] = ':'
+        else:
+            hover_data[name] = ':.3f'
+
     fig = px.line(df,
                   x="date",
                   y=plot_value,
-                  color='location')
+                  color='location',
+                  hover_name='location',
+                  hover_data=hover_data
+                  )
     if out_file:
         print("Saving HTML to {}".format(out_file))
         fig.write_html(out_file)

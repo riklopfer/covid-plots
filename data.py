@@ -134,7 +134,7 @@ POSITIVE_CASE_COL = 'cases'
 TEST_TOTAL_COL = 'tests'
 DEATHS_COL = 'deaths'
 
-_NON_NUMERIC_COLUMNS = {
+NON_NUMERIC_COLUMNS = {
     'date', 'nation', 'state', 'county', 'location'
 }
 
@@ -152,7 +152,7 @@ def date_filter(df: pd.DataFrame,
 
 def add_avg_columns(df: pd.DataFrame, window: int):
     # First find rolling means
-    numeric = df.drop(_NON_NUMERIC_COLUMNS, axis=1, errors='ignore')
+    numeric = df.drop(NON_NUMERIC_COLUMNS, axis=1, errors='ignore')
     roller = numeric.rolling(window)
     means = roller.mean()
     df = df.join(means, rsuffix='_{}day-avg'.format(window))
