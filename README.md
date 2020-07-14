@@ -4,7 +4,7 @@ Plot COVID test rates by state.
 
 # Data
 
-Data is generously provided by [The COVID Tracking Project](https://covidtracking.com/). I would really love to have county-level data, so if you know of such a source please let me know. 
+Data is generously provided by [The COVID Tracking Project](https://covidtracking.com/) and [NYTimes](https://github.com/nytimes/covid-19-data). I would really love to have county-level data, so if you know of such a source please let me know. 
 
 # Set up
 
