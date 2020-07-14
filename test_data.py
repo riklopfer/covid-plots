@@ -137,5 +137,18 @@ class TestCensusData(unittest.TestCase):
         self.assertTrue(county < state < nation)
 
 
+class TestPopulationNormalizedData(unittest.TestCase):
+
+    def test_stuff(self):
+        covid = data.NyTimesData()
+        population = data.CensusData()
+
+        normalized = data.PopulationNormalizedData(covid, population)
+
+        location = data.parse_location("Allegheny,PA")
+        xx = normalized.build_df(location, 7)
+        self.assertFalse(xx.empty)
+
+
 if __name__ == '__main__':
     unittest.main()

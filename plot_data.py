@@ -33,8 +33,9 @@ def main(argv):
     parser.add_argument('--metric',
                         help='Metric to look at.',
                         type=str,
-                        choices=['cases', 'deaths', 'test-rate'],
-                        default='cases'
+                        choices=['cases', 'deaths', 'tests', 'test-rate',
+                                 'cases100k', 'deaths100k', 'tests100k'],
+                        default='cases100k'
                         )
     args = parser.parse_args(argv[1:])
     locations = [data.parse_location(_) for _ in args.locations]
@@ -49,11 +50,13 @@ def main(argv):
     if use_nytimes and use_tracking:
         raise ValueError("We do not county level test data!")
 
-    data_source = data.NyTimesData() if use_nytimes else data.CovidTrackingData()
+    covid_data = data.NyTimesData() if use_nytimes else data.CovidTrackingData()
+    census_data = data.CensusData()
+    pop_normalized = data.PopulationNormalizedData(covid_data, census_data)
 
     def load_df(loc):
-        return data_source.build_df(loc, window=window,
-                                    start_date=start_date, end_date=end_date)
+        return pop_normalized.build_df(loc, window=window,
+                                       start_date=start_date, end_date=end_date)
 
     df = None
 

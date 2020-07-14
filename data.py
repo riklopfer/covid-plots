@@ -59,9 +59,9 @@ def parse_location(location_string: str) -> Location:
 
     unparsed = []
     for dat in data:
-        if dat == 'USA':
+        if dat.upper() == 'USA':
             continue
-        elif dat in ABV_STATE_MAP:
+        elif dat.upper() in ABV_STATE_MAP:
             state = dat
         elif dat in STATE_ABV_MAP:
             state = dat
@@ -72,6 +72,8 @@ def parse_location(location_string: str) -> Location:
     if len(unparsed) > 1:
         raise ValueError("Could not parse '{}' un-parsed datum {}"
                          .format(location_string, unparsed))
+    if len(unparsed) == len(data):
+        raise ValueError("Failed to parse location '{}' -- check casing? ")
 
     if unparsed:
         county = unparsed[0]
@@ -133,7 +135,7 @@ TEST_TOTAL_COL = 'tests'
 DEATHS_COL = 'deaths'
 
 _NON_NUMERIC_COLUMNS = {
-    'nation', 'state', 'county', 'location'
+    'date', 'nation', 'state', 'county', 'location'
 }
 
 
@@ -148,6 +150,22 @@ def date_filter(df: pd.DataFrame,
     return df
 
 
+def add_avg_columns(df: pd.DataFrame, window: int):
+    # First find rolling means
+    numeric = df.drop(_NON_NUMERIC_COLUMNS, axis=1, errors='ignore')
+    roller = numeric.rolling(window)
+    means = roller.mean()
+    df = df.join(means, rsuffix='_{}day-avg'.format(window))
+
+    if TEST_TOTAL_COL in df.columns:
+        totals = roller.sum()
+        test_rates = (totals[POSITIVE_CASE_COL] /
+                      totals[TEST_TOTAL_COL])
+        df['test-rate_{}day-avg'.format(window)] = test_rates
+
+    return df
+
+
 class DailyData(object):
 
     def get_df(self) -> pd.DataFrame:
@@ -155,21 +173,7 @@ class DailyData(object):
         raise NotImplementedError
 
     def get_avg_df(self, window) -> pd.DataFrame:
-        df = self.get_df()
-
-        # First find rolling means
-        numeric = df.drop(_NON_NUMERIC_COLUMNS, axis=1, errors='ignore')
-        roller = numeric.rolling(window)
-        means = roller.mean()
-        df = df.join(means, rsuffix='_{}day-avg'.format(window))
-
-        if TEST_TOTAL_COL in df.columns:
-            totals = roller.sum()
-            test_rates = (totals[POSITIVE_CASE_COL] /
-                          totals[TEST_TOTAL_COL])
-            df['test-rate_{}day-avg'.format(window)] = test_rates
-
-        return df
+        return add_avg_columns(self.get_df(), window)
 
 
 class _StateData(DailyData, ABC):
@@ -183,8 +187,7 @@ class _NationalData(DailyData, ABC):
     def get_state_data(self, state_str) -> _StateData:
         raise NotImplementedError("State data not available")
 
-    def build_df(self, loc: Location, window: int,
-                 start_date=None, end_date=None) -> pd.DataFrame:
+    def build_source(self, loc: Location):
         source = self
 
         if loc.state:
@@ -193,6 +196,11 @@ class _NationalData(DailyData, ABC):
         if loc.county:
             source = source.get_county_data(loc.county)
 
+        return source
+
+    def build_df(self, loc: Location, window: int,
+                 start_date=None, end_date=None) -> pd.DataFrame:
+        source = self.build_source(loc)
         df = source.get_avg_df(window)
         return date_filter(df, start_date, end_date)
 
@@ -422,3 +430,24 @@ class CensusData(PopulationData):
     def get_population(self, loc: Location) -> int:
         df = self.build_df(loc)
         return df['population'].sum()
+
+
+class PopulationNormalizedData(object):
+
+    def __init__(self, covid_data: _NationalData, census_data: PopulationData):
+        self.covid_data = covid_data
+        self.census_data = census_data
+
+    def build_df(self, loc: Location, window: int,
+                 start_date=None, end_date=None) -> pd.DataFrame:
+        raw_df = self.covid_data.build_source(loc).get_df()
+
+        population = self.census_data.get_population(loc)
+        pop100k = population / 100e3
+
+        for col in ['cases', 'deaths', 'tests']:
+            if col in raw_df.columns:
+                raw_df['{}100k'.format(col)] = raw_df[col] / pop100k
+
+        avg = add_avg_columns(raw_df, window)
+        return date_filter(avg, start_date, end_date)
