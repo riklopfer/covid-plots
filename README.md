@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 # Usage
 
-`plot_test_rate.py` will produce a nice interactive plot of average testing rates over time. The window for the average is provided as a parameter to the script. 
+`plot_data.py` will produce a nice interactive plot of average testing rates over time. The window for the average is provided as a parameter to the script. 
 
 ```bash
 ./plot_data.py  "Contra Costa,CA" "Allegheny,PA" "Clark,OH" "Fairfield,CT" --metric=cases100k --window=7

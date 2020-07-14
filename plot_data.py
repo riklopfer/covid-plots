@@ -37,12 +37,19 @@ def main(argv):
                                  'cases100k', 'deaths100k', 'tests100k'],
                         default='cases100k'
                         )
+    parser.add_argument('-o', '--out_file',
+                        help='write HTML to this file',
+                        type=str,
+                        default=None
+                        )
+
     args = parser.parse_args(argv[1:])
     locations = [data.parse_location(_) for _ in args.locations]
     window = args.window
     metric = args.metric
     start_date = args.start
     end_date = args.end
+    out_file = args.out_file
 
     use_tracking = 'test' in metric
     use_nytimes = any(loc.county for loc in locations)
@@ -71,6 +78,10 @@ def main(argv):
                   x="date",
                   y=plot_value,
                   color='location')
+    if out_file:
+        print("Saving HTML to {}".format(out_file))
+        fig.write_html(out_file)
+
     fig.show()
 
 
