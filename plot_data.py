@@ -42,8 +42,7 @@ def make_figure(locations, metric, window, start_date=None, end_date=None):
                   y=plot_value,
                   color='location',
                   hover_name='location',
-                  title='{}<br>{}'.format(plot_value,
-                                          datetime.now().isoformat())
+                  title='{}'.format(plot_value)
                   )
 
     return fig
@@ -112,7 +111,8 @@ def main(argv):
     header = ' | '.join(
         f'<a href="#{metric}">{metric}</a>'
         for metric in metrics)
-    html = f'<font size=24>{header}</font>'
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+    html = f'<font size=24>{now_str} {header}</font>'
     for metric in metrics:
         html += '<h2 id={}>{}</h2>'.format(metric, metric)
         for window in windows:
