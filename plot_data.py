@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.7
 import argparse
-import collections
 import sys
+from datetime import datetime
 
 import pandas as pd
 import plotly.express as px
@@ -9,49 +9,7 @@ import plotly.express as px
 import data
 
 
-def main(argv):
-    parser = argparse.ArgumentParser(description=argv[0])
-    parser.add_argument('locations',
-                        help='County, state (full). e.g. Clark,OH',
-                        type=str,
-                        nargs='+'
-                        )
-    parser.add_argument('--start',
-                        help='start date',
-                        type=pd.to_datetime,
-                        default=None
-                        )
-    parser.add_argument('--end',
-                        help='end date',
-                        type=pd.to_datetime,
-                        default=None
-                        )
-    parser.add_argument('--window',
-                        help='size of the moving window',
-                        type=int,
-                        default=7
-                        )
-    parser.add_argument('--metric',
-                        help='Metric to look at.',
-                        type=str,
-                        choices=['cases', 'deaths', 'tests', 'test-rate',
-                                 'cases100k', 'deaths100k', 'tests100k'],
-                        default='cases100k'
-                        )
-    parser.add_argument('-o', '--out_file',
-                        help='write HTML to this file',
-                        type=str,
-                        default=None
-                        )
-
-    args = parser.parse_args(argv[1:])
-    locations = [data.parse_location(_) for _ in args.locations]
-    window = args.window
-    metric = args.metric
-    start_date = args.start
-    end_date = args.end
-    out_file = args.out_file
-
+def make_figure(locations, metric, window, start_date=None, end_date=None):
     use_tracking = 'test' in metric
     use_nytimes = any(loc.county for loc in locations)
 
@@ -74,28 +32,100 @@ def main(argv):
         else:
             df = df.append(load_df(location))
 
-    plot_value = '{}_{}day-avg'.format(metric, window)
-    hover_set = set(df.columns) - data.NON_NUMERIC_COLUMNS - {plot_value}
-
-    hover_data = collections.OrderedDict()
-    for name in sorted(hover_set):
-        if name in {'cases', 'deaths'}:
-            hover_data[name] = ':'
-        else:
-            hover_data[name] = ':.3f'
+    if window < 2:
+        plot_value = metric
+    else:
+        plot_value = '{}_{}day-avg'.format(metric, window)
 
     fig = px.line(df,
                   x="date",
                   y=plot_value,
                   color='location',
                   hover_name='location',
-                  hover_data=hover_data
+                  title='{}<br>{}'.format(plot_value,
+                                          datetime.now().isoformat())
                   )
+
+    return fig
+
+
+ALLOWED_METRICS = {
+    'cases', 'deaths', 'tests', 'test-rate',
+    'cases100k', 'deaths100k', 'tests100k'
+}
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(description=argv[0])
+    parser.add_argument('locations',
+                        help='County, state (full). e.g. Clark,OH',
+                        type=str,
+                        nargs='+'
+                        )
+    parser.add_argument('--start',
+                        help='start date',
+                        type=pd.to_datetime,
+                        default=None
+                        )
+    parser.add_argument('--end',
+                        help='end date',
+                        type=pd.to_datetime,
+                        default=None
+                        )
+    parser.add_argument('--windows',
+                        help='size of the moving window. (comma separated)',
+                        type=str,
+                        required=True
+                        )
+    parser.add_argument('--metrics',
+                        help='Metric to look at. (comma separated)',
+                        type=str,
+                        required=True
+                        )
+    parser.add_argument('-o', '--out_file',
+                        help='write HTML to this file',
+                        type=str,
+                        default=None
+                        )
+
+    args = parser.parse_args(argv[1:])
+    locations = [data.parse_location(_) for _ in args.locations]
+    windows = [int(_.strip()) for _ in args.windows.split(",") if _.strip()]
+    if not windows:
+        raise ValueError("Must supply at least one window")
+    metrics = []
+    for metric in args.metrics.split(","):
+        metric = metric.strip()
+        if not metric:
+            continue
+        if metric not in ALLOWED_METRICS:
+            raise ValueError("Unknown metric {}\n"
+                             "Allowed: {}".format(metric,
+                                                  ALLOWED_METRICS))
+        metrics.append(metric)
+    if not metrics:
+        raise ValueError("Must supply at least one metric")
+    start_date = args.start
+    end_date = args.end
+    out_file = args.out_file
+
+    header = ' | '.join(
+        f'<a href="#{metric}">{metric}</a>'
+        for metric in metrics)
+    html = f'<font size=24>{header}</font>'
+    for metric in metrics:
+        html += '<h2 id={}>{}</h2>'.format(metric, metric)
+        for window in windows:
+            fig = make_figure(locations, metric, window, start_date, end_date)
+            if out_file:
+                html += fig.to_html(full_html=False)
+            else:
+                fig.show()
+
     if out_file:
         print("Saving HTML to {}".format(out_file))
-        fig.write_html(out_file)
-
-    fig.show()
+        with open(out_file, 'w') as ofp:
+            ofp.write("<html>{}</html>".format(html))
 
 
 if __name__ == '__main__':
