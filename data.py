@@ -153,7 +153,7 @@ def date_filter(df: pd.DataFrame,
 def add_avg_columns(df: pd.DataFrame, window: int):
     if window < 2 and TEST_TOTAL_COL in df.columns:
         # just need to add raw test rate
-        df['test-rate'] = (df[POSITIVE_CASE_COL] /
+        df['positive-test-rate'] = (df[POSITIVE_CASE_COL] /
                            df[TEST_TOTAL_COL])
         return df
 
@@ -167,7 +167,7 @@ def add_avg_columns(df: pd.DataFrame, window: int):
         totals = roller.sum()
         test_rates = (totals[POSITIVE_CASE_COL] /
                       totals[TEST_TOTAL_COL])
-        df['test-rate_{}day-avg'.format(window)] = test_rates
+        df['positive-test-rate_{}day-avg'.format(window)] = test_rates
 
     return df
 
