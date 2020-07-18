@@ -151,6 +151,12 @@ def date_filter(df: pd.DataFrame,
 
 
 def add_avg_columns(df: pd.DataFrame, window: int):
+    if window < 2 and TEST_TOTAL_COL in df.columns:
+        # just need to add raw test rate
+        df['test-rate'] = (df[POSITIVE_CASE_COL] /
+                           df[TEST_TOTAL_COL])
+        return df
+
     # First find rolling means
     numeric = df.drop(NON_NUMERIC_COLUMNS, axis=1, errors='ignore')
     roller = numeric.rolling(window)
@@ -449,5 +455,5 @@ class PopulationNormalizedData(object):
             if col in raw_df.columns:
                 raw_df['{}100k'.format(col)] = raw_df[col] / pop100k
 
-        avg = add_avg_columns(raw_df, window)
-        return date_filter(avg, start_date, end_date)
+        df = add_avg_columns(raw_df, window)
+        return date_filter(df, start_date, end_date)

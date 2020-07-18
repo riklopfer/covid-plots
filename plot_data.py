@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.7
 import argparse
+import logging
 import sys
 from datetime import datetime
 
@@ -11,12 +12,14 @@ import data
 
 def make_figure(locations, metric, window, start_date=None, end_date=None):
     use_tracking = 'test' in metric
-    use_nytimes = any(loc.county for loc in locations)
+    if use_tracking:
+        # exclude any county-level locations
+        locations = [loc for loc in locations if not loc.county]
 
-    if use_nytimes and use_tracking:
-        raise ValueError("We do not county level test data!")
+    if not locations:
+        raise data.DataUnavailableException("No data for counties")
 
-    covid_data = data.NyTimesData() if use_nytimes else data.CovidTrackingData()
+    covid_data = data.CovidTrackingData() if use_tracking else data.NyTimesData()
     census_data = data.CensusData()
     pop_normalized = data.PopulationNormalizedData(covid_data, census_data)
 
@@ -88,6 +91,10 @@ def main(argv):
                         )
 
     args = parser.parse_args(argv[1:])
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(argv[0])
+
     locations = [data.parse_location(_) for _ in args.locations]
     windows = [int(_.strip()) for _ in args.windows.split(",") if _.strip()]
     if not windows:
@@ -116,14 +123,20 @@ def main(argv):
     for metric in metrics:
         html += '<h2 id={}>{}</h2>'.format(metric, metric)
         for window in windows:
-            fig = make_figure(locations, metric, window, start_date, end_date)
+            try:
+                fig = make_figure(locations, metric, window, start_date,
+                                  end_date)
+            except data.DataUnavailableException:
+                logger.exception("Could not make figure. ")
+                continue
+
             if out_file:
                 html += fig.to_html(full_html=False)
             else:
                 fig.show()
 
     if out_file:
-        print("Saving HTML to {}".format(out_file))
+        logger.info("Saving HTML to {}".format(out_file))
         with open(out_file, 'w') as ofp:
             ofp.write("<html>{}</html>".format(html))
 
