@@ -11,7 +11,7 @@ import data
 
 
 def make_figure(locations, metric, window, start_date=None, end_date=None):
-    use_tracking = 'test' in metric
+    use_tracking = 'test' in metric or 'hospitalization' in metric
     if use_tracking:
         # exclude any county-level locations
         locations = [loc for loc in locations if not loc.county]
@@ -52,8 +52,9 @@ def make_figure(locations, metric, window, start_date=None, end_date=None):
 
 
 ALLOWED_METRICS = {
-    'cases', 'deaths', 'tests', 'positive-test-rate',
-    'cases100k', 'deaths100k', 'tests100k'
+    'cases', 'deaths', 'tests', 'hospitalizations',
+    'cases100k', 'deaths100k', 'tests100k', 'hospitalizations100k',
+    'positive-test-rate',
 }
 
 

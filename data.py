@@ -133,10 +133,14 @@ class DataUnavailableException(Exception):
 POSITIVE_CASE_COL = 'cases'
 TEST_TOTAL_COL = 'tests'
 DEATHS_COL = 'deaths'
+HOSPITALIZATIONS_COL = 'hospitalizations'
 
 NON_NUMERIC_COLUMNS = {
     'date', 'nation', 'state', 'county', 'location'
 }
+
+NUMERIC_COLUMNS = {POSITIVE_CASE_COL, TEST_TOTAL_COL, DEATHS_COL,
+                   HOSPITALIZATIONS_COL}
 
 
 def date_filter(df: pd.DataFrame,
@@ -154,7 +158,7 @@ def add_avg_columns(df: pd.DataFrame, window: int):
     if window < 2 and TEST_TOTAL_COL in df.columns:
         # just need to add raw test rate
         df['positive-test-rate'] = (df[POSITIVE_CASE_COL] /
-                           df[TEST_TOTAL_COL])
+                                    df[TEST_TOTAL_COL])
         return df
 
     # First find rolling means
@@ -320,7 +324,8 @@ class CovidTrackingData(_NationalData):
             'date': 'date',
             'positiveIncrease': 'cases',
             'totalTestResultsIncrease': 'tests',
-            'deathIncrease': 'deaths'
+            'deathIncrease': 'deaths',
+            'hospitalizedIncrease': 'hospitalizations',
         }
 
     def _load_df(self, target):
@@ -451,9 +456,8 @@ class PopulationNormalizedData(object):
         population = self.census_data.get_population(loc)
         pop100k = population / 100e3
 
-        for col in ['cases', 'deaths', 'tests']:
-            if col in raw_df.columns:
-                raw_df['{}100k'.format(col)] = raw_df[col] / pop100k
+        for col in NUMERIC_COLUMNS & set(raw_df.columns):
+            raw_df['{}100k'.format(col)] = raw_df[col] / pop100k
 
         df = add_avg_columns(raw_df, window)
         return date_filter(df, start_date, end_date)
