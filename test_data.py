@@ -109,6 +109,12 @@ class CovidTrackingDataTest(GenericTest):
                                   start_date=pd.to_datetime('03-22-2020'),
                                   end_date=pd.to_datetime('06-30-2020'))
 
+    def test_hospitalizations(self):
+        ct = self.data.get_state_data('CT')
+        df = ct.get_df()
+        self.basic_requirements(df)
+        pass
+
 
 class TestCensusData(unittest.TestCase):
 
