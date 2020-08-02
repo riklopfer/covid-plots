@@ -8,6 +8,8 @@ Data is generously provided by [The COVID Tracking Project](https://covidtrackin
 
 # Set up
 
+Maybe I should just use conda.
+
 Ubuntu
 ---
 
@@ -20,6 +22,18 @@ sudo apt install virtualenvwrapper python3.7
 mkvirtualenv covid-testing -p /usr/bin/python3.7
 
 # install requirements (in project dir)
+pip install -r requirements.txt
+
+```
+
+MacOS / Homebrew
+----------------
+
+```bash
+brew install python@3.7
+
+mkvirtualenv covid-testing -p /usr/local/bin/python3
+
 pip install -r requirements.txt
 
 ```
