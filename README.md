@@ -30,9 +30,9 @@ MacOS / Homebrew
 ----------------
 
 ```bash
-brew install python@3.7
-
-mkvirtualenv covid-testing -p /usr/local/bin/python3
+brew cask install miniconda
+# conda init bash
+conda create -n covid-testing python=3.7
 
 pip install -r requirements.txt
 
