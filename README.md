@@ -33,7 +33,7 @@ MacOS / Homebrew
 brew cask install miniconda
 # conda init bash
 conda create -n covid-testing python=3.7
-
+conda activate covid-testing
 pip install -r requirements.txt
 
 ```
