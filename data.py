@@ -280,7 +280,7 @@ class NyTimesData(_NationalData):
         """
         self.df = pd.read_csv(csv_path, parse_dates=['date'],
                               usecols=['date', 'county', 'state', 'cases',
-                                       'deaths'])
+                                       'deaths'],encoding='raw_unicode_escape')
         # No mapping required
         self.df.sort_values('date', inplace=True)
 
@@ -338,7 +338,7 @@ class CovidTrackingData(_NationalData):
 
         # load data frame
         df = pd.read_csv(csv_path, parse_dates=['date'],
-                         usecols=self._column_mapping.keys())
+                         usecols=self._column_mapping.keys(),encoding='raw_unicode_escape')
 
         # map columns
         df.rename(columns=self._column_mapping, inplace=True)
@@ -400,7 +400,7 @@ def _fix_county_name(name: str):
 def _load_census_df():
     csv_path = _dl_census_csv()
     fields = ['SUMLEV', 'STNAME', 'CTYNAME', 'POPESTIMATE2019']
-    df = pd.read_csv(csv_path, usecols=fields)
+    df = pd.read_csv(csv_path, usecols=fields,encoding='raw_unicode_escape')
     # map columns
     col_map = {
         "SUMLEV": 'sumlev',
