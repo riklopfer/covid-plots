@@ -14,7 +14,7 @@ def make_figure(locations, metric, window, start_date=None, end_date=None):
     use_tracking = 'test' in metric or 'hospitalization' in metric
     if use_tracking:
         # exclude any county-level locations
-        locations = [loc for loc in locations if not loc.county]
+        locations = set(location.drop_county() for location in locations)
 
     if not locations:
         raise data.DataUnavailableException("No data for counties")
@@ -81,7 +81,8 @@ def main(argv):
                         required=True
                         )
     parser.add_argument('--metrics',
-                        help='Metric to look at. (comma separated)',
+                        help='Metric to look at. (comma separated)\n'
+                             'Allowed: {}'.format(ALLOWED_METRICS),
                         type=str,
                         required=True
                         )
@@ -96,7 +97,7 @@ def main(argv):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(argv[0])
 
-    locations = [data.parse_location(_) for _ in args.locations]
+    locations = set(data.parse_location(_) for _ in args.locations)
     windows = [int(_.strip()) for _ in args.windows.split(",") if _.strip()]
     if not windows:
         raise ValueError("Must supply at least one window")

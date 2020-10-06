@@ -1,7 +1,7 @@
 import os
 from abc import ABC
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 import requests
@@ -46,10 +46,30 @@ def _lookup_name_abbrev(state_str):
 
 
 class Location(object):
-    def __init__(self, nation, state, county):
+    def __init__(self, nation: str, state: str, county: Union[str, None]):
         self.nation = nation
-        self.county = county
         self.state = state
+        self.county = county
+
+    def drop_county(self):
+        if not self.county:
+            return self
+
+        return Location(self.nation, self.state, None)
+
+    def __str__(self):
+        val = self.nation
+        if self.state:
+            val += "," + self.state
+        if self.county:
+            val += "," + self.county
+        return val
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __lt__(self, other):
+        return str(self) < str(other)
 
 
 def parse_location(location_string: str) -> Location:
@@ -280,7 +300,7 @@ class NyTimesData(_NationalData):
         """
         self.df = pd.read_csv(csv_path, parse_dates=['date'],
                               usecols=['date', 'county', 'state', 'cases',
-                                       'deaths'],encoding='raw_unicode_escape')
+                                       'deaths'], encoding='raw_unicode_escape')
         # No mapping required
         self.df.sort_values('date', inplace=True)
 
@@ -338,7 +358,7 @@ class CovidTrackingData(_NationalData):
 
         # load data frame
         df = pd.read_csv(csv_path, parse_dates=['date'],
-                         usecols=self._column_mapping.keys(),encoding='raw_unicode_escape')
+                         usecols=self._column_mapping.keys(), encoding='raw_unicode_escape')
 
         # map columns
         df.rename(columns=self._column_mapping, inplace=True)
@@ -400,7 +420,7 @@ def _fix_county_name(name: str):
 def _load_census_df():
     csv_path = _dl_census_csv()
     fields = ['SUMLEV', 'STNAME', 'CTYNAME', 'POPESTIMATE2019']
-    df = pd.read_csv(csv_path, usecols=fields,encoding='raw_unicode_escape')
+    df = pd.read_csv(csv_path, usecols=fields, encoding='raw_unicode_escape')
     # map columns
     col_map = {
         "SUMLEV": 'sumlev',
