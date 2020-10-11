@@ -8,31 +8,13 @@ Data is generously provided by [The COVID Tracking Project](https://covidtrackin
 
 # Set up
 
-Maybe I should just use conda.
+Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
-Ubuntu
----
-
-```bash
-# install virtual env wrapper
-# you will need to open a new shell to get updated environment variables after installing
-sudo apt install virtualenvwrapper python3.7
-
-# make a virtual environment
-mkvirtualenv covid-testing -p /usr/bin/python3.7
-
-# install requirements (in project dir)
-pip install -r requirements.txt
-
-```
-
-MacOS / Homebrew
+Create Conda Environment
 ----------------
 
 ```bash
-brew cask install miniconda
-# conda init bash
-conda create -n covid-testing python=3.7
+conda create -n covid-testing python=3.7 -y
 conda activate covid-testing
 pip install -r requirements.txt
 
