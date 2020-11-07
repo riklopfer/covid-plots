@@ -1,4 +1,4 @@
-# covid-testing
+# covid-plots
 
 Plot COVID test rates by state. 
 
