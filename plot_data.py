@@ -3,6 +3,7 @@ import argparse
 import logging
 import sys
 from datetime import datetime
+from typing import Iterable
 
 import pandas as pd
 import plotly.express as px
@@ -10,7 +11,25 @@ import plotly.express as px
 import data
 
 
-def make_figure(locations, metric, window, start_date=None, end_date=None):
+def update_locations(locations: Iterable[data.Location], metric: str) -> Iterable[data.Location]:
+    use_tracking = 'test' in metric or 'hospitalization' in metric
+    if use_tracking:
+        # exclude any county-level locations
+        return [location.drop_county() for location in locations]
+    else:
+        return locations
+
+
+def load_pn_data(metric: str) -> data.PopulationNormalizedData:
+    use_tracking = 'test' in metric or 'hospitalization' in metric
+
+    covid_data = data.CovidTrackingData() if use_tracking else data.NyTimesData()
+    census_data = data.CensusData()
+    pop_normalized = data.PopulationNormalizedData(covid_data, census_data)
+    return pop_normalized
+
+
+def _make_figure(locations: Iterable[data.Location], metric: str, window: int, start_date=None, end_date=None):
     use_tracking = 'test' in metric or 'hospitalization' in metric
     if use_tracking:
         # exclude any county-level locations
@@ -22,6 +41,41 @@ def make_figure(locations, metric, window, start_date=None, end_date=None):
     covid_data = data.CovidTrackingData() if use_tracking else data.NyTimesData()
     census_data = data.CensusData()
     pop_normalized = data.PopulationNormalizedData(covid_data, census_data)
+
+    # check if the data has changed
+
+    def load_df(loc):
+        return pop_normalized.build_df(loc, window=window,
+                                       start_date=start_date, end_date=end_date)
+
+    df = None
+
+    for location in locations:
+        if df is None:
+            df = load_df(location)
+        else:
+            df = df.append(load_df(location))
+
+    if window < 2:
+        plot_value = metric
+    else:
+        plot_value = '{}_{}day-avg'.format(metric, window)
+
+    fig = px.line(df,
+                  x="date",
+                  y=plot_value,
+                  color='location',
+                  hover_name='location',
+                  title='{}'.format(plot_value)
+                  )
+
+    return fig
+
+
+def make_figure(pop_normalized: data.PopulationNormalizedData,
+                locations: Iterable[data.Location],
+                metric: str, window: int, start_date=None, end_date=None):
+    # check if the data has changed
 
     def load_df(loc):
         return pop_normalized.build_df(loc, window=window,
@@ -126,8 +180,14 @@ def main(argv):
         html += '<h2 id={}>{}</h2>'.format(metric, metric)
         for window in windows:
             try:
-                fig = make_figure(locations, metric, window, start_date,
-                                  end_date)
+                updated_locs = update_locations(locations, metric)
+                pn_data = load_pn_data(metric)
+                fig = make_figure(pop_normalized=pn_data,
+                                  locations=updated_locs,
+                                  metric=metric,
+                                  window=window,
+                                  start_date=start_date,
+                                  end_date=end_date)
             except data.DataUnavailableException:
                 logger.exception("Could not make figure. ")
                 continue
