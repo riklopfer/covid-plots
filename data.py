@@ -1,3 +1,5 @@
+import functools
+import hashlib
 import os
 from abc import ABC
 from datetime import datetime
@@ -212,7 +214,7 @@ class _StateData(DailyData, ABC):
         raise NotImplementedError("County data unavailable")
 
 
-class _NationalData(DailyData, ABC):
+class NationalData(DailyData, ABC):
 
     def get_state_data(self, state_str) -> _StateData:
         raise NotImplementedError("State data not available")
@@ -288,7 +290,7 @@ class StateData(_StateData):
         return CountyData(county_df)
 
 
-class NyTimesData(_NationalData):
+class NyTimesData(NationalData):
     def __init__(self):
         # download data and create initial data frame
         csv_path = _dl_csv(
@@ -320,7 +322,7 @@ class NyTimesData(_NationalData):
         return df
 
 
-class CovidTrackingData(_NationalData):
+class CovidTrackingData(NationalData):
 
     def __init__(self):
         """
@@ -465,7 +467,7 @@ class CensusData(PopulationData):
 
 class PopulationNormalizedData(object):
 
-    def __init__(self, covid_data: _NationalData, census_data: PopulationData):
+    def __init__(self, covid_data: NationalData, census_data: CensusData):
         self.covid_data = covid_data
         self.census_data = census_data
 
@@ -481,3 +483,12 @@ class PopulationNormalizedData(object):
 
         df = add_avg_columns(raw_df, window)
         return date_filter(df, start_date, end_date)
+
+    @functools.lru_cache(maxsize=None)
+    def check_sum(self) -> str:
+        md5 = hashlib.md5()
+        for d in self.covid_data.get_df().iterrows():
+            md5.update(str(d).encode('utf8'))
+        for d in self.census_data.df.iterrows():
+            md5.update(str(d).encode('utf8'))
+        return md5.hexdigest()

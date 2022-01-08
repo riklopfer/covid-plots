@@ -1,4 +1,7 @@
 .idea/
+.checksums
+kovid-dashboard.htm
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

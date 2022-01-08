@@ -14,7 +14,7 @@ Create Conda Environment
 ----------------
 
 ```bash
-conda create -n covid-testing python=3.7 -y
+conda create -n covid-testing python=3.8 -y
 conda activate covid-testing
 pip install -r requirements.txt
 
