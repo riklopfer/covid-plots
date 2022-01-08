@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.7
 import argparse
+import functools
 import logging
 import os.path
 import sys
@@ -21,6 +22,7 @@ def update_locations(locations: Iterable[data.Location], metric: str) -> Iterabl
         return locations
 
 
+@functools.lru_cache(maxsize=None)
 def load_pn_data(metric: str) -> data.PopulationNormalizedData:
     use_tracking = 'test' in metric or 'hospitalization' in metric
 
