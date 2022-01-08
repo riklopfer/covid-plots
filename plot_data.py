@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.7
 import argparse
 import logging
+import os.path
 import sys
 from datetime import datetime
 from typing import Iterable
@@ -171,6 +172,14 @@ def main(argv):
     end_date = args.end
     out_file = args.out_file
 
+    check_sum_file = '.checksums'
+
+    prev_checksums = None
+    if os.path.exists(check_sum_file):
+        with open(check_sum_file, 'r', encoding='utf8') as ifp:
+            prev_checksums = ifp.read()
+
+    current_checksums = ""
     header = ' | '.join(
         f'<a href="#{metric}">{metric}</a>'
         for metric in metrics)
@@ -182,6 +191,9 @@ def main(argv):
             try:
                 updated_locs = update_locations(locations, metric)
                 pn_data = load_pn_data(metric)
+                checksum = pn_data.check_sum()
+                current_checksums += checksum + "\n"
+
                 fig = make_figure(pop_normalized=pn_data,
                                   locations=updated_locs,
                                   metric=metric,
@@ -198,9 +210,15 @@ def main(argv):
                 fig.show()
 
     if out_file:
-        logger.info("Saving HTML to {}".format(out_file))
-        with open(out_file, 'w') as ofp:
-            ofp.write("<html>{}</html>".format(html))
+        if current_checksums == prev_checksums:
+            logger.warning("Not writing file because data hasn't changed!")
+        else:
+            with open(check_sum_file, 'w', encoding='utf8') as ofp:
+                ofp.write(current_checksums)
+
+            logger.info("Saving HTML to {}".format(out_file))
+            with open(out_file, 'w') as ofp:
+                ofp.write("<html>{}</html>".format(html))
 
 
 if __name__ == '__main__':
