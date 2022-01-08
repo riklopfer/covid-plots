@@ -172,7 +172,7 @@ def main(argv):
     end_date = args.end
     out_file = args.out_file
 
-    check_sum_file = '.checksums'
+    check_sum_file = os.path.join('/tmp', 'covid_data_checksums')
 
     prev_checksums = None
     if os.path.exists(check_sum_file):
