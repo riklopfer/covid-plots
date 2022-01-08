@@ -149,7 +149,7 @@ def main(argv):
 
     args = parser.parse_args(argv[1:])
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(filename="/tmp/plot_data.log", level=logging.INFO)
     logger = logging.getLogger(argv[0])
 
     locations = set(data.parse_location(_) for _ in args.locations)
