@@ -479,7 +479,7 @@ class PopulationNormalizedData(object):
         pop100k = population / 100e3
 
         for col in NUMERIC_COLUMNS & set(raw_df.columns):
-            raw_df['{}100k'.format(col)] = raw_df[col] / pop100k
+            raw_df['{}100k'.format(col)] = raw_df[col].clip(lower=0) / pop100k
 
         df = add_avg_columns(raw_df, window)
         return date_filter(df, start_date, end_date)
