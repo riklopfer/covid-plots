@@ -2,7 +2,6 @@ import functools
 import hashlib
 import os
 from abc import ABC
-from datetime import datetime
 from typing import Optional, Union
 
 import pandas as pd
@@ -111,16 +110,10 @@ def _dl_csv(url, data_source, target):
     target = target.lower()
     # this doesn't have county-level testing data
     out_dir = os.path.join(DATA_DIR, data_source, target)
-    now_hour = datetime.utcnow().strftime('%Y-%m-%d:%H')
-    out_path = os.path.join(out_dir, f'{now_hour}.daily.csv')
-    # update once per hour?
-    if os.path.exists(out_path):
-        return out_path
+    out_path = os.path.join(out_dir, f'daily.csv')
 
     r = requests.get(url)
-    if r.status_code != 200:
-        raise ValueError("Received bad status code {}\n{}".
-                         format(r.status_code, r.text))
+    r.raise_for_status()
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
